@@ -23,7 +23,7 @@ aws_access_key: ""
 aws_create: false
 aws_destroy: false
 # NOTE: vars for AWS manupulation
-aws_instance_count: 3
+aws_instance_count: 5
 aws_zone: us-east-1
 aws_image: ami-07ebfd5b3428b6f4d
 aws_security_group: sg-025a8e70ecbc09a1a

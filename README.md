@@ -46,3 +46,7 @@ All default vars stored inside `group_vars/all.yml`
 Additionally you need setup `aws_secret_key` and `aws_access_key` inside `vars/sercet` (using `ansible-vault edit vars/sercet`)
 
 And `aws_security_group` + `aws_key_name` inside `group_vars/all.yml`
+
+### Hage Fun!
+![21 EC2 host dcluster](images/21_host_cluster.png)
+![21 EC2 host deployment result](images/21_host.png)

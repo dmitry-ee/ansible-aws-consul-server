@@ -1,15 +1,14 @@
 - hosts: ec2
   become: yes
+  gather_facts: no
   tasks:
-
-    - apt:
-        update_cache: true
-        force_apt_get: true
 
     # NOTE: if we will run ec2 commands on localhost with delecate_to: 127.0.0.1
     - apt:
+        update_cache: true
         state: present
         name: ['unzip']
+        force_apt_get: true
 
     # NOTE: ELSE
     # - apt:

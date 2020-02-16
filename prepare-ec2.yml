@@ -1,0 +1,22 @@
+- hosts: ec2
+  become: yes
+  tasks:
+
+    - apt:
+        update_cache: true
+        force_apt_get: true
+
+    # NOTE: if we will run ec2 commands on localhost with delecate_to: 127.0.0.1
+    - apt:
+        state: present
+        name: ['unzip']
+
+    # NOTE: ELSE
+    # - apt:
+    #     state: present
+    #     name: [ 'unzip', 'python-apt', 'python3-pip' ]
+    #     force_apt_get: true
+    #
+    # - pip:
+    #     name: ['boto3']
+    #     state: present

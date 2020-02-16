@@ -1,0 +1,12 @@
+[Service]
+Restart=always
+ExecStart=/usr/bin/consul \
+  agent \
+  -config-file {{ consul_config_dir }}/{{ consul_config_file }} \
+{% if consul_with_ui is defined and consul_with_ui %}
+  -ui
+{% endif %}
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target

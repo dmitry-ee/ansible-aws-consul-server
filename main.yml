@@ -1,0 +1,13 @@
+###
+
+# NOTE: creates newly instances
+- import_playbook: create-or-destroy-ec2.yml aws_create=true
+
+# NOTE: install pre-requisites
+- import_playbook: prepare-ec2.yml
+
+# NOTE: install consul bin and runs as a client mode
+- import_playbook: install-consul-bin.yml
+
+# NOTE: configure consul as server and auto-join all servers into a cluster
+- import_playbook: configure-server-auto-join.yml

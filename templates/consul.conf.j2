@@ -1,0 +1,18 @@
+{
+  "server": {{ "true" if consul_role != "client" else "false" }},
+  "client_addr": "{{ consul_client_addr }}",
+{% if consul_nodes is defined %}
+  "retry_join": [ "{{ consul_nodes | join("\",\"")  }}" ],
+{% endif %}
+{% if consul_advertise_addr is defined %}
+  "advertise_addr": "{{ consul_advertise_addr }}",
+{% endif %}
+{% if consul_role == 'server' and consul_bootstrap_count is defined %}
+  "bootstrap_expect": {{ consul_bootstrap_count }},
+{% endif %}
+  "log_level": "{{ consul_log_level }}",
+  "data_dir": "{{ consul_data_dir }}",
+  "datacenter": "{{ aws_zone }}",
+  "skip_leave_on_interrupt": true,
+  "leave_on_terminate" : false
+}

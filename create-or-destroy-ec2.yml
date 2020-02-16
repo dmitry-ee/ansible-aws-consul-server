@@ -1,0 +1,76 @@
+- hosts: localhost
+  gather_facts: no
+  tasks:
+
+    - block:
+      - name: try to unlock ansible-vault
+        include_vars: vars/secret
+        no_log: yes
+      rescue:
+      - debug: msg="vault cannot be decrypted! try to supply flag --ask-vault pass or try another password"
+        failed_when: yes
+
+    # NOTE: CREATE
+    - block:
+      - name: creates EC2 instances
+        ec2:
+          aws_access_key: "{{ aws_access_key }}"
+          aws_secret_key: "{{ aws_secret_key }}"
+          region: "{{ aws_zone }}"
+          image: "{{ aws_image }}"
+          group_id: "{{ aws_security_group }}"
+          instance_type: "{{ aws_instance_type }}"
+          key_name: "{{ aws_key_name }}"
+          count: "{{ aws_instance_count }}"
+          instance_tags:
+            "{ '{{ consul_instance_tag_name }}': '' }"
+        register: ec2_servers_created
+
+      - name: servers created!
+        set_fact:
+          ec2_servers_created_ips: "{{ ec2_servers_created | json_query('instances[].public_ip') }}"
+
+      - debug: msg="{{ ec2_servers_created_ips }}"
+        changed_when: true
+
+      - name: add [{{ aws_inventory_group }}] group to inventory
+        blockinfile: path="{{ aws_inventory_path }}" insertafter='[{{ aws_inventory_group }}]' marker='' marker_begin='' marker_end='' block='{{ ec2_servers_created_ips | join('\n') }}'
+
+      - name: waits when hosts will available by ssh
+        wait_for: host="{{ item }}" port=22 timeout=3000
+        with_items: "{{ ec2_servers_created_ips }}"
+
+      - meta: refresh_inventory
+
+      when: aws_create | bool
+
+    # NOTE: DESTROY
+    - block:
+
+      - name: get servers with proper tag from AWS
+        ec2_instance_facts:
+          aws_access_key: "{{ aws_access_key }}"
+          aws_secret_key: "{{ aws_secret_key }}"
+          region: "{{ aws_zone }}"
+          filters:
+            "tag-key": "{{ consul_instance_tag_name }}"
+        register: ec2_tagged_servers
+
+      - set_fact:
+          ec2_running_instance_ids: "{{ ec2_tagged_servers | json_query('instances[].instance_id') }}"
+
+      - name: destroys EC2 instances
+        ec2:
+          aws_access_key: "{{ aws_access_key }}"
+          aws_secret_key: "{{ aws_secret_key }}"
+          region: "{{ aws_zone }}"
+          state: absent
+          instance_ids: "{{ ec2_running_instance_ids }}"
+
+      - name: removes [{{ aws_inventory_group }}] group from aws inventory
+        ini_file: path="{{ aws_inventory_path }}" section="{{ aws_inventory_group }}" state=absent
+
+      - name: createss [{{ aws_inventory_group }}] group again
+        lineinfile: path="{{ aws_inventory_path }}" line='[{{ aws_inventory_group }}]\n' insertbefore=BOF
+
+      when: aws_destroy | bool

@@ -1,0 +1,33 @@
+consul_binary_arch: linux_amd64
+consul_releases_url: https://releases.hashicorp.com/consul/
+consul_bin_path: /usr/bin
+consul_config_dir: /etc/consul
+consul_config_file: consul.json
+consul_data_dir: /data/consul
+consul_service_name: consul
+consul_mode: 0755
+
+consul_role: server
+consul_with_ui: true
+consul_bootstrap_count: 3
+consul_client_addr: 0.0.0.0
+consul_log_level: debug
+consul_advertise_addr: "{{ ansible_default_ipv4.address }}"
+
+consul_instance_tag_name: my-awesome-tag
+
+# NOTE: secured value stored inside vars/secret
+aws_secret_key: ""
+aws_access_key: ""
+# NOTE: vars for create-or-destroy.yml
+aws_create: false
+aws_destroy: false
+# NOTE: vars for AWS manupulation
+aws_instance_count: 3
+aws_zone: us-east-1
+aws_image: ami-07ebfd5b3428b6f4d
+aws_security_group: sg-025a8e70ecbc09a1a
+aws_instance_type: t2.micro
+aws_key_name: AWS
+aws_inventory_group: ec2
+aws_inventory_path: aws

@@ -1,0 +1,94 @@
+- hosts: ec2
+  become: yes
+  # strategy: free
+  # serial: 1
+  tasks:
+
+    - set_fact:
+        consul_need_install: false
+        consul_is_upgradeable: false
+        consul_need_reconfig: false
+        consul_role: client #!!!
+
+    - name: get latest version of consul
+      shell: curl -sXGET {{ consul_releases_url }} | grep 'href="/consul' | sed -E 's/.*href="\/consul\/([^\/]+).*/\1/' | sort | grep -Ev 'beta|ent' | tail -1
+      delegate_to: 127.0.0.1
+      become: false
+      run_once: yes
+      register: consul_version
+
+    - name: checks for installed consul version
+      shell: consul version | grep Consul | sed -E 's/Consul v//'
+      register: consul_version_check
+
+    - debug: msg="latest version from {{ consul_releases_url }} = {{ consul_version.stdout }}"
+      run_once: yes
+
+    - name: found installed version = {{ consul_version_check.stdout }}
+      set_fact:
+        consul_is_upgradeable: true
+      when:
+        - consul_version_check.rc == 0
+        - consul_version_check.stdout != ''
+        - consul_version.stdout is version(consul_version_check.stdout, '>')
+
+    # NOTE: implement some upgrade logic when some var supplied explicitly
+    - debug: msg="there's new version!"
+      changed_when: yes
+      when: consul_is_upgradeable
+
+    - name: consul is not installed, going to install
+      set_fact:
+        consul_need_install: true
+      when: consul_version_check.rc > 0 or consul_version_check.stdout == ''
+
+    - name: INSTALL CONSUL
+      block:
+
+        - name: create temp_dir for download
+          tempfile: state=directory
+          register: temp_dir
+
+        - name: create all necessary dirs
+          file: path="{{ item }}" state=directory mode="{{ consul_mode }}"
+          with_items:
+            - "{{ consul_config_dir }}"
+            - "{{ consul_data_dir }}"
+
+        - name: "download consul binary, version = {{ consul_version.stdout }}"
+          get_url:
+            url: "{{ consul_releases_url }}{{ consul_version.stdout }}/consul_{{ consul_version.stdout }}_{{ consul_binary_arch }}.zip"
+            dest: "{{ temp_dir.path }}/consul.zip"
+
+        - name: unpacks consul.zip
+          unarchive:
+            src: "{{ temp_dir.path }}/consul.zip"
+            dest: "{{ temp_dir.path }}/"
+            creates: "{{ temp_dir.path }}/consul"
+            remote_src: yes
+
+        - name: fix permissions
+          file: path="{{ temp_dir.path }}/consul" mode="{{ consul_mode }}"
+
+        - name: "move binary to {{ consul_bin_path }}"
+          shell: "mv {{ temp_dir.path }}/consul {{ consul_bin_path }}/consul"
+
+        - name: remove temp_dir
+          file:
+            path: "{{ temp_dir.path }}"
+            state: absent
+
+        - name: checks consul setup went ok
+          shell: consul version
+          register: consul_setup_result
+
+        - debug: "{{ consul_setup_result.stdout }}"
+          failed_when: consul_setup_result.rc > 1
+
+        - set_fact:
+            consul_need_reconfig: true
+
+      when: consul_need_install
+
+    - include: tasks/configure-consul.yml
+      when: consul_need_reconfig | bool

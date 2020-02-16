@@ -1,0 +1,35 @@
+- name: copy consul config
+  template:
+    src: consul.conf.j2
+    dest: "{{ consul_config_dir }}/{{ consul_config_file }}"
+    mode: "{{ consul_mode }}"
+  register: config_changed
+
+- name: copy systemd unit file
+  template:
+    src: consul.service.j2
+    dest: "/etc/systemd/system/{{ consul_service_name }}.service"
+    mode: "{{ consul_mode }}"
+  register: systemd_changed
+
+- shell: systemctl daemon-reload
+  when: systemd_changed.changed
+
+- name: starts/reloads consul
+  systemd:
+    name: "{{ consul_service_name }}"
+    state: restarted
+    enabled: yes
+  register: consul_service_changed
+
+- name: "wait when it starts, role = {{ consul_role }}"
+  wait_for:
+    port: '{{ 8301 if consul_role == "client" else 8300 }}'
+    state: started
+    delay: 15
+    timeout: 60
+  when: consul_service_changed.changed
+
+- name: checks consul node healthcheck (by :8500/v1/agent/checks)
+  uri:
+    url: http://127.0.0.1:8500/v1/agent/checks

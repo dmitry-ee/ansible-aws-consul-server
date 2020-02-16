@@ -1,0 +1,47 @@
+- hosts: ec2
+  become: yes
+  # serial: 1
+  tasks:
+
+    - set_fact:
+        consul_nodes: []
+        consul_role: server
+
+    - debug: msg="consul_mode = 'client'! change it to 'server' instead"
+      when: consul_mode == 'client'
+      failed_when: consul_mode == 'client'
+
+    - block:
+      - name: try to unlock ansible-vault
+        include_vars: vars/secret
+        no_log: yes
+      rescue:
+      - debug: msg="vault cannot be decrypted! try to supply flag --ask-vault pass or try another password"
+        failed_when: yes
+
+    - name: get servers with proper tag from AWS
+      ec2_instance_facts:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_zone }}"
+        filters:
+          "tag-key": "{{ consul_instance_tag_name }}"
+      delegate_to: 127.0.0.1
+      become: false
+      run_once: yes
+      register: ec2_tagged_servers
+
+    - name: get private dns for found servers
+      set_fact:
+        consul_nodes: "{{ ec2_tagged_servers | json_query('instances[*].network_interfaces[0].private_dns_name') }}"
+
+    - name: "found anailable servers for tag {{ consul_instance_tag_name }}"
+      debug: "msg={{ consul_nodes }}"
+      changed_when: consul_nodes != '' and (consul_nodes | length) != 0
+      failed_when: consul_nodes == '' or (consul_nodes | length) == 0
+      run_once: yes
+
+    - include: tasks/configure-consul.yml
+
+# "private_dns_name": "ip-172-31-93-55.ec2.internal",
+# "private_ip_address": "172.31.93.55",
